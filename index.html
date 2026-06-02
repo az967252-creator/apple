@@ -1,0 +1,1364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apple</title>
+  <link rel="icon" href="apple-logo.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- React & ReactDOM -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Three.js & Loaders -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
+  <!-- GSAP -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+  <!-- Phosphor Icons (for modern minimalist icons) -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+  <!-- Tailwind CSS & Framer Motion for GalleryBento -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #000;
+      color: #f5f5f7;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      scrollbar-gutter: stable;
+      user-select: none;
+    }
+
+    /* Ambient Background Layer */
+    #ambient-layer {
+      position: fixed; inset: 0; z-index: 0;
+      background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.05) 0%, #000 60%);
+      transition: background 1.2s ease;
+    }
+
+    /* 3D Canvas Container */
+    #canvas-container {
+      position: fixed; inset: 0; z-index: 1; pointer-events: none;
+    }
+
+    /* Loading Screen */
+    #loader {
+      position: fixed; inset: 0; z-index: 1000;
+      background: #000;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 32px;
+      transition: opacity 1s ease;
+    }
+    .loader-logo { animation: loaderPulse 2s ease-in-out infinite; }
+    @keyframes loaderPulse {
+      0%, 100% { opacity: 0.6; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.05); }
+    }
+    .loader-progress-wrap {
+      display: flex; flex-direction: column; align-items: center; gap: 14px;
+    }
+    .loader-percent {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.25em;
+      text-transform: uppercase; color: rgba(255,255,255,0.35);
+    }
+    .loader-bar-track { width: 200px; height: 1px; background: rgba(255,255,255,0.08); overflow: hidden; border-radius: 1px; }
+    .loader-bar-fill {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, rgba(255,255,255,0.4), #fff);
+      transition: width 0.4s cubic-bezier(0.4,0,0.2,1);
+      border-radius: 1px;
+    }
+    .loader-label {
+      font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase;
+      color: rgba(255,255,255,0.2); font-weight: 500;
+    }
+    /* Horizontal Accordion Gallery */
+    .accordion-gallery {
+      display: flex; flex-direction: row; gap: 10px;
+      width: 100%; max-width: 1200px; height: 560px;
+    }
+    .accordion-col {
+      position: relative; overflow: hidden; border-radius: 20px;
+      flex: 1; min-width: 0;
+      transition: flex 0.6s cubic-bezier(0.4,0,0.2,1);
+      cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.07);
+    }
+    .accordion-col.active { flex: 5; }
+    .accordion-col img {
+      width: 100%; height: 100%; object-fit: cover;
+      transition: filter 0.5s ease, transform 0.6s ease;
+    }
+    .accordion-col:not(.active) img { filter: brightness(0.4) saturate(0.5); }
+    .accordion-col.active img { filter: brightness(0.65); transform: scale(1.03); }
+    .accordion-col-overlay {
+      position: absolute; inset: 0;
+      background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 50%);
+    }
+    .accordion-col-label {
+      position: absolute; bottom: 0; left: 0; right: 0; padding: 28px 24px;
+    }
+    .accordion-col-category {
+      font-size: 9px; font-weight: 700; letter-spacing: 0.3em;
+      text-transform: uppercase; color: rgba(255,255,255,0.45);
+      margin-bottom: 6px; display: block;
+    }
+    .accordion-col-title {
+      font-size: 1.1rem; font-weight: 700; color: #fff;
+      font-family: 'Georgia', serif; line-height: 1.2;
+      transition: font-size 0.4s ease;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .accordion-col.active .accordion-col-title { font-size: 2rem; white-space: normal; }
+    .accordion-col-detail {
+      overflow: hidden; max-height: 0;
+      transition: max-height 0.5s ease, opacity 0.4s ease 0.15s;
+      opacity: 0;
+    }
+    .accordion-col.active .accordion-col-detail { max-height: 120px; opacity: 1; }
+    .accordion-col-detail p {
+      margin-top: 10px; font-size: 13px; color: rgba(255,255,255,0.6); line-height: 1.6;
+    }
+    /* Apple Timeline */
+    .timeline-section {
+      background: #050505; padding: 120px 40px;
+      position: relative; overflow: hidden; z-index: 20;
+    }
+    .timeline-heading { text-align: center; margin-bottom: 80px; }
+    .timeline-eyebrow {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.3em;
+      text-transform: uppercase; color: rgba(255,255,255,0.3); margin-bottom: 14px;
+    }
+    .timeline-title {
+      font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 700;
+      color: #fff; font-family: 'Georgia', serif; letter-spacing: -0.02em;
+    }
+    .timeline-track {
+      display: flex; flex-direction: column; gap: 0;
+      max-width: 820px; margin: 0 auto; position: relative;
+    }
+    .timeline-item {
+      display: grid;
+      grid-template-columns: 80px 1px 1fr;
+      gap: 0 32px;
+      align-items: start;
+      padding: 48px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      opacity: 0; transform: translateY(24px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+      position: relative;
+    }
+    .timeline-item.visible { opacity: 1; transform: translateY(0); }
+    .timeline-item:last-child { border-bottom: none; }
+    /* Giant year number */
+    .timeline-year-giant {
+      font-size: clamp(2.5rem, 6vw, 4rem); font-weight: 900;
+      color: rgba(255,255,255,0.06);
+      font-family: 'Georgia', serif; line-height: 1;
+      letter-spacing: -0.04em;
+      text-align: right;
+      padding-top: 6px;
+      transition: color 0.4s ease;
+      user-select: none;
+    }
+    .timeline-item.visible .timeline-year-giant { color: rgba(255,255,255,0.1); }
+    .timeline-item:hover .timeline-year-giant { color: rgba(255,255,255,0.22) !important; }
+    /* Vertical line + dot divider */
+    .timeline-divider {
+      display: flex; flex-direction: column; align-items: center;
+      padding-top: 10px;
+    }
+    .timeline-node {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.3);
+      flex-shrink: 0;
+      transition: background 0.3s ease, transform 0.3s ease;
+    }
+    .timeline-item:hover .timeline-node { background: #fff; transform: scale(1.4); }
+    .timeline-line-seg {
+      width: 1px; flex: 1;
+      background: rgba(255,255,255,0.06);
+      margin-top: 8px;
+    }
+    .timeline-content { padding-top: 0; }
+    .timeline-year-label {
+      font-size: 9px; font-weight: 700; letter-spacing: 0.3em;
+      color: rgba(255,255,255,0.2); text-transform: uppercase; margin-bottom: 10px;
+    }
+    .timeline-event-title {
+      font-size: 1.25rem; font-weight: 700; color: #fff;
+      font-family: 'Georgia', serif; margin-bottom: 10px; line-height: 1.3;
+    }
+    .timeline-event-desc {
+      font-size: 14px; color: rgba(255,255,255,0.38); line-height: 1.75;
+    }
+    /* Store Locator */
+    .stores-section {
+      background: #09090b; padding: 120px 40px;
+      position: relative; z-index: 20;
+    }
+    .stores-heading { text-align: center; margin-bottom: 64px; }
+    .stores-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px; max-width: 1100px; margin: 0 auto;
+    }
+    .store-card {
+      background: rgba(255,255,255,0.025);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 20px; padding: 32px;
+      transition: all 0.35s ease;
+      cursor: pointer; position: relative; overflow: hidden;
+    }
+    .store-card::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(circle at 50% 0%, rgba(255,255,255,0.04) 0%, transparent 70%);
+      opacity: 0; transition: opacity 0.35s ease;
+    }
+    .store-card:hover { border-color: rgba(255,255,255,0.14); transform: translateY(-4px); }
+    .store-card:hover::before { opacity: 1; }
+    .store-flag {
+      font-size: 32px; margin-bottom: 20px; display: block;
+    }
+    .store-city {
+      font-size: 1.4rem; font-weight: 700; color: #fff;
+      font-family: 'Georgia', serif; margin-bottom: 6px;
+    }
+    .store-address {
+      font-size: 13px; color: rgba(255,255,255,0.35); margin-bottom: 24px; line-height: 1.6;
+    }
+    .store-meta {
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .store-meta-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px;
+      background: rgba(255,255,255,0.03); border-radius: 10px;
+    }
+    .store-meta-label { font-size: 11px; color: rgba(255,255,255,0.3); font-weight: 500; }
+    .store-meta-val { font-size: 12px; color: rgba(255,255,255,0.7); font-weight: 600; }
+    .store-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: 20px; padding: 6px 14px;
+      background: rgba(48,209,88,0.1); border: 1px solid rgba(48,209,88,0.2);
+      border-radius: 980px; font-size: 11px; color: #30d158; font-weight: 600;
+    }
+    .store-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #30d158; }
+    .store-img-strip {
+      width: 100%; height: 140px; object-fit: cover;
+      border-radius: 12px; margin-bottom: 24px;
+      opacity: 0.55; transition: opacity 0.35s ease;
+    }
+    .store-card:hover .store-img-strip { opacity: 0.75; }
+    .store-tag {
+      display: inline-block;
+      margin-bottom: 14px; padding: 4px 12px;
+      border-radius: 980px; font-size: 10px; font-weight: 700;
+      letter-spacing: 0.15em; text-transform: uppercase;
+    }
+
+    /* UI Overlay Layer (Hero) */
+    #ui-layer {
+      position: relative; width: 100vw; height: 100vh; z-index: 10;
+      pointer-events: none;
+      display: flex; flex-direction: column; justify-content: space-between;
+      padding: 120px 40px 40px 40px; /* top padding for fixed header */
+    }
+
+    /* ===== DYNAMIC ISLAND NAVBAR ===== */
+    header {
+      pointer-events: auto;
+      display: flex; justify-content: center; align-items: center;
+      position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+      z-index: 100; width: auto;
+    }
+    .di-pill {
+      position: relative;
+      display: flex; align-items: center; gap: 0;
+      background: rgba(0,0,0,0.85);
+      backdrop-filter: blur(28px) saturate(180%);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 9999px;
+      padding: 10px 14px;
+      transition: all 0.5s cubic-bezier(0.34,1.56,0.64,1);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
+      overflow: hidden;
+      cursor: pointer;
+    }
+    .di-pill:hover {
+      padding: 10px 20px;
+      gap: 6px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.08);
+    }
+    /* Apple logo always visible */
+    .di-logo {
+      width: 22px; height: 22px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .di-logo img {
+      width: 18px; height: 18px; object-fit: contain;
+      filter: brightness(0) invert(1); opacity: 0.9;
+    }
+    /* Nav links — collapse to 0 width by default, expand on hover */
+    .di-links {
+      display: flex; align-items: center; gap: 0;
+      max-width: 0; overflow: hidden;
+      transition: max-width 0.5s cubic-bezier(0.34,1.56,0.64,1), gap 0.4s ease;
+      white-space: nowrap;
+    }
+    .di-pill:hover .di-links {
+      max-width: 480px;
+      gap: 2px;
+    }
+    .di-sep {
+      width: 1px; height: 16px;
+      background: rgba(255,255,255,0.12);
+      flex-shrink: 0;
+      margin: 0 4px;
+      opacity: 0;
+      transition: opacity 0.3s ease 0.1s;
+    }
+    .di-pill:hover .di-sep { opacity: 1; }
+    .gnav-link {
+      padding: 7px 13px;
+      font-size: 13px; font-weight: 500;
+      border-radius: 9999px;
+      text-decoration: none;
+      color: rgba(255,255,255,0.55);
+      transition: all 0.25s ease;
+      cursor: pointer; border: none; background: transparent;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .gnav-link:hover { color: #fff; background: rgba(255,255,255,0.07); }
+    .gnav-link.active { color: #fff; }
+    /* CTA button inside pill */
+    .di-cta {
+      max-width: 0; overflow: hidden;
+      transition: max-width 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.05s, opacity 0.3s ease;
+      opacity: 0;
+      flex-shrink: 0;
+    }
+    .di-pill:hover .di-cta { max-width: 140px; opacity: 1; }
+    .di-cta-btn {
+      background: #fff; color: #000;
+      border: none; border-radius: 9999px;
+      padding: 7px 16px; margin-left: 8px;
+      font-size: 12px; font-weight: 700;
+      cursor: pointer; white-space: nowrap;
+      transition: opacity 0.2s ease;
+    }
+    .di-cta-btn:hover { opacity: 0.85; }
+    /* Notification dot — pulsing */
+    .di-notif {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #ff375f;
+      flex-shrink: 0; margin-left: 6px;
+      box-shadow: 0 0 6px rgba(255,55,95,0.8);
+      animation: diPulse 2s ease-in-out infinite;
+    }
+    @keyframes diPulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.4); opacity: 0.6; }
+    }
+    /* Parallax effects */
+    .parallax-card {
+      will-change: transform;
+    }
+    /* Main Content Area */
+    main {
+      flex: 1; position: relative;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+
+  /* ===== UNIFIED CARD DESIGN ===== */
+  .glass-panel {
+    pointer-events: auto;
+    background: rgba(12, 12, 14, 0.7);
+    backdrop-filter: blur(32px) saturate(200%);
+    -webkit-backdrop-filter: blur(32px) saturate(200%);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-top: 1px solid rgba(255,255,255,0.15);
+    border-radius: 28px;
+    padding: 0;
+    width: 340px;
+    box-shadow: 0 32px 64px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08);
+    overflow: hidden;
+    transition: transform 0.08s linear;
+  }
+    .card-accent {
+      height: 3px; width: 100%;
+      transition: background 0.5s ease;
+    }
+    .card-body { padding: 28px; }
+    .info-eyebrow {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.25em;
+      text-transform: uppercase; margin-bottom: 10px; display: block; opacity: 0.9;
+    }
+    .info-title {
+      font-size: 34px; font-weight: 700; line-height: 1.1;
+      letter-spacing: -0.03em; margin-bottom: 14px; color: #fff;
+    }
+    .info-desc {
+      font-size: 13px; color: rgba(255,255,255,0.45); line-height: 1.65; margin-bottom: 24px;
+    }
+    .primary-btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%; padding: 13px; border-radius: 14px;
+      font-size: 13px; font-weight: 600; color: #fff;
+      border: none; cursor: pointer; transition: opacity 0.25s, transform 0.2s; letter-spacing: 0.01em;
+    }
+    .primary-btn:hover { opacity: 0.85; transform: scale(0.98); }
+    .card-section-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.25em;
+      text-transform: uppercase; color: rgba(255,255,255,0.35); margin-bottom: 20px; display: block;
+    }
+    .specs-list { list-style: none; display: flex; flex-direction: column; gap: 0; }
+    .spec-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.05); gap: 12px;
+    }
+    .spec-item:first-child { padding-top: 0; }
+    .spec-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .spec-label { font-size: 12px; color: rgba(255,255,255,0.4); font-weight: 500; flex-shrink: 0; }
+    .spec-val { font-size: 13px; font-weight: 600; color: #fff; text-align: right; line-height: 1.3; }
+    .spec-highlight {
+      display: flex; align-items: center; justify-content: space-between;
+      background: rgba(255,255,255,0.05); border-radius: 12px; padding: 12px 14px; margin-top: 16px;
+    }
+    .spec-highlight-label { font-size: 12px; color: rgba(255,255,255,0.4); font-weight: 500; }
+    .spec-highlight-val { font-size: 15px; font-weight: 700; color: #fff; }
+
+    /* Bottom Carousel Controls */
+    footer {
+      pointer-events: auto;
+      display: flex; justify-content: center; padding-bottom: 20px;
+    }
+    .carousel-dock {
+      display: flex; align-items: center; gap: 12px;
+      background: rgba(20, 20, 20, 0.6);
+      backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 980px; padding: 8px;
+    }
+    .dock-item {
+      position: relative;
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 16px; border-radius: 980px;
+      font-size: 13px; font-weight: 500; color: #86868b;
+      cursor: pointer; transition: all 0.4s ease;
+      background: transparent; border: none;
+    }
+    .dock-item:hover { color: #f5f5f7; }
+    .dock-item.active { color: #fff; }
+    .dock-bg {
+      position: absolute; inset: 0; z-index: -1;
+      border-radius: 980px;
+      opacity: 0; transition: opacity 0.4s ease;
+    }
+    .dock-item.active .dock-bg { opacity: 1; }
+    /* Wheel Hint */
+    .scroll-hint {
+      position: absolute; right: 40px; bottom: 40px;
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      color: #86868b; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em;
+    }
+    .mouse-icon {
+      width: 20px; height: 32px; border: 2px solid #86868b; border-radius: 20px;
+      position: relative;
+    }
+    .mouse-wheel {
+      position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+      width: 2px; height: 6px; background: #86868b; border-radius: 2px;
+      animation: wheelAnim 1.5s infinite;
+    }
+    @keyframes wheelAnim {
+      0% { transform: translate(-50%, 0); opacity: 1; }
+      100% { transform: translate(-50%, 8px); opacity: 0; }
+    }
+
+    /* ===== CIRCULAR FOOTER ===== */
+    .c-footer {
+      background-color: #050507;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      position: relative; z-index: 20; overflow: hidden;
+      min-height: 500px;
+      display: flex; flex-direction: column;
+    }
+    /* Top section with ring */
+    .c-footer-top {
+      flex: 1;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 40px;
+    }
+    .c-footer-wrapper {
+      position: relative;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .c-rotating-ring {
+      width: 180px; height: 180px;
+      border: 1px dashed rgba(255,255,255,0.15);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+      animation: spin 20s linear infinite;
+    }
+    .c-ring-svg {
+      width: 100%; height: 100%;
+      position: absolute; overflow: visible;
+    }
+    .c-ring-text {
+      font-size: 8px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.15em;
+      fill: #a1a1aa;
+    }
+    .c-center-btn {
+      position: absolute;
+      width: 90px; height: 90px;
+      background: rgba(255,255,255,0.03);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 700; letter-spacing: 0.1em;
+      text-decoration: none; z-index: 10;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+    .c-center-btn img {
+      width: 32px !important; height: 32px !important;
+    }
+    .c-center-btn:hover {
+      transform: scale(1.08);
+      background: rgba(255,255,255,0.08);
+      box-shadow: 0 0 24px rgba(255,255,255,0.1);
+    }
+    /* Footer bottom bar */
+    .c-footer-bottom {
+      border-top: 1px solid rgba(255,255,255,0.05);
+      padding: 32px 40px;
+      display: flex; align-items: center; justify-content: space-between;
+      max-width: 1000px; margin: 0 auto; gap: 20px;
+      width: 100%; flex-wrap: wrap;
+    }
+    .c-footer-copy {
+      font-size: 11px; color: rgba(255,255,255,0.3); line-height: 1.5;
+    }
+    .c-footer-social {
+      display: flex; gap: 12px; align-items: center;
+    }
+    .c-social-btn {
+      width: 32px; height: 32px;
+      border-radius: 50%; border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.03);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.25s ease;
+      color: rgba(255,255,255,0.4); font-size: 14px;
+      text-decoration: none;
+    }
+    .c-social-btn:hover { background: rgba(255,255,255,0.1); color: #fff; border-color: rgba(255,255,255,0.2); }
+    .c-footer-legal {
+      display: flex; gap: 20px; flex-wrap: wrap;
+    }
+    .c-footer-legal a {
+      font-size: 11px; color: rgba(255,255,255,0.2);
+      text-decoration: none; cursor: pointer; transition: color 0.2s;
+    }
+    .c-footer-legal a:hover { color: rgba(255,255,255,0.5); }
+    @keyframes spin {
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient BG -->
+  <div id="ambient-layer"></div>
+
+  <!-- Loader (Premium Apple Style) -->
+  <div id="loader">
+    <div class="loader-logo">
+      <img src="apple-logo.png" alt="Apple" width="52" height="52" style="object-fit:contain; filter:brightness(0) invert(1); opacity:0.9;" />
+    </div>
+    <div class="loader-progress-wrap">
+      <div class="loader-bar-track"><div class="loader-bar-fill" id="loaderBar"></div></div>
+      <div class="loader-percent" id="loaderPercent">0%</div>
+    </div>
+    <div class="loader-label">Loading Experience</div>
+  </div>
+
+  <!-- 3D Canvas -->
+  <div id="canvas-container"></div>
+
+  <!-- React UI Root -->
+  <div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+const DATA = [
+  {
+    id: 'iphone',
+    name: 'iPhone 17 Pro Max',
+    title: 'Pro. Beyond Pro.',
+    desc: 'The most powerful iPhone ever made. Engineered down to the atom with aerospace titanium and the breakthrough A19 Pro chip.',
+    color: '#0071e3',
+    price: 'From $1,299',
+    ambient: 'radial-gradient(circle at 50% 50%, rgba(0,113,227,0.12) 0%, #000 65%)',
+    specs: [
+      { label: 'Chipset', value: 'A19 Pro (3nm)' },
+      { label: 'Display', value: '6.9″ ProMotion 144Hz' },
+      { label: 'Chassis', value: 'Grade 5 Titanium' }
+    ]
+  },
+  {
+    id: 'ipad',
+    name: 'iPad Mini 6',
+    title: 'Pocketable. Powerful.',
+    desc: 'Apple M2 silicon in the most compact form factor ever. Redefining what power looks like when it fits in your hand.',
+    color: '#bf5af2',
+    price: 'From $499',
+    ambient: 'radial-gradient(circle at 50% 50%, rgba(191,90,242,0.12) 0%, #000 65%)',
+    specs: [
+      { label: 'Silicon', value: 'Apple M2 Chip' },
+      { label: 'Screen', value: '8.3″ Liquid Retina' },
+      { label: 'Battery', value: '21-Hour Endurance' }
+    ]
+  },
+  {
+    id: 'watch',
+    name: 'Watch Ultra 2',
+    title: 'Built for The Extreme.',
+    desc: 'Titanium. 100m dive-rated. GPS precision beyond any map. 72 hours of battery life. The toughest Apple Watch ever.',
+    color: '#ff9f0a',
+    price: 'From $799',
+    ambient: 'radial-gradient(circle at 50% 50%, rgba(255,159,10,0.1) 0%, #000 65%)',
+    specs: [
+      { label: 'Material', value: 'Aerospace Titanium' },
+      { label: 'Navigation', value: 'L1+L5 Precision GPS' },
+      { label: 'Durability', value: '100m Water Resistant' }
+    ]
+  },
+  {
+    id: 'macbook',
+    name: 'MacBook Ultra',
+    title: 'Conceptual Leap.',
+    desc: 'M4 Ultra chip in an impossibly thin chassis. Desktop-class quantum processing, rethought for a mobile era.',
+    color: '#30d158',
+    price: 'From $2,499',
+    ambient: 'radial-gradient(circle at 50% 50%, rgba(48,209,88,0.1) 0%, #000 65%)',
+    specs: [
+      { label: 'Processor', value: 'M4 Ultra Quantum' },
+      { label: 'Display', value: 'XDR Nano-Texture' },
+      { label: 'Input', value: 'Haptic Glass Trackpad' }
+    ]
+  }
+];
+
+// --- 3D Engine Setup ---
+let G_MODELS = {};
+let G_SCENE, G_CAMERA, G_RENDERER;
+let CURRENT_INDEX = 0;
+
+function init3D() {
+  const container = document.getElementById('canvas-container');
+  const W = window.innerWidth, H = window.innerHeight;
+
+  G_RENDERER = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  G_RENDERER.setSize(W, H);
+  G_RENDERER.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  G_RENDERER.outputEncoding = THREE.sRGBEncoding;
+  G_RENDERER.toneMapping = THREE.ACESFilmicToneMapping;
+  G_RENDERER.toneMappingExposure = 1.4;
+  container.appendChild(G_RENDERER.domElement);
+
+  G_SCENE = new THREE.Scene();
+  G_CAMERA = new THREE.PerspectiveCamera(40, W / H, 0.1, 100);
+  G_CAMERA.position.z = 10;
+
+  // Natural Lighting Setup
+  G_SCENE.add(new THREE.HemisphereLight(0xffffff, 0x222222, 1.2)); // Soft overall light
+  const mainLight = new THREE.DirectionalLight(0xffffff, 2.5);
+  mainLight.position.set(5, 8, 5);
+  G_SCENE.add(mainLight);
+  const fillLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  fillLight.position.set(-5, 3, 5);
+  G_SCENE.add(fillLight);
+  const backLight = new THREE.DirectionalLight(0xffffff, 1.5);
+  backLight.position.set(0, 5, -8);
+  G_SCENE.add(backLight);
+
+  // Load Models
+  const loader = new THREE.GLTFLoader();
+  const files = [
+    { id: 'iphone', path: 'iphone-17-pro-max/source/Untitled.glb', size: 3.5, offsetY: -1.2 },
+    { id: 'ipad', path: 'ipad_mini_6_2021.glb', size: 4.2, offsetY: -0.3 },
+    { id: 'watch', path: 'apple_watch_ultra_2.glb', size: 2.8, offsetY: -0.2 },
+    { id: 'macbook', path: 'macbook-air/source/MacBook Ultra.glb', size: 4.8, offsetY: 0.9 } // Raised even more
+  ];
+
+  let loadedCount = 0;
+  files.forEach(f => {
+    loader.load(f.path, gltf => {
+      const model = gltf.scene;
+      model.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(model);
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+
+      model.position.sub(center); // Center pivot
+      const maxDim = Math.max(size.x, size.y, size.z);
+      model.scale.setScalar(f.size / maxDim);
+
+      // Make all materials transparent-ready on load
+      model.traverse(child => {
+        if (child.isMesh && child.material) {
+          const mats = Array.isArray(child.material) ? child.material : [child.material];
+          mats.forEach(m => { m.transparent = true; m.opacity = 1; });
+        }
+      });
+
+      const wrapper = new THREE.Group();
+      wrapper.add(model);
+      wrapper.position.y = f.offsetY;
+      
+      const animWrapper = new THREE.Group();
+      animWrapper.add(wrapper);
+      G_SCENE.add(animWrapper);
+      
+      // Hide initially except first — set opacity to 0 instead of scale trick
+      if (f.id !== files[0].id) {
+        animWrapper.visible = false;
+        animWrapper.scale.setScalar(0.85);
+        model.traverse(child => {
+          if (child.isMesh && child.material) {
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            mats.forEach(m => { m.opacity = 0; });
+          }
+        });
+      }
+
+      G_MODELS[f.id] = { group: animWrapper, model };
+
+      loadedCount++;
+      const pct = Math.round((loadedCount/files.length)*100);
+      document.getElementById('loaderBar').style.width = `${pct}%`;
+      document.getElementById('loaderPercent').textContent = `${pct}%`;
+      if (loadedCount === files.length) {
+        setTimeout(() => {
+          const loader = document.getElementById('loader');
+          loader.style.opacity = '0';
+          setTimeout(() => { loader.style.display = 'none'; }, 1000);
+        }, 600);
+      }
+    });
+  });
+
+  // Render Loop
+  const clock = new THREE.Clock();
+  function animate() {
+    requestAnimationFrame(animate);
+    const t = clock.getElapsedTime();
+    
+    // Animate active model
+    const activeEntry = G_MODELS[DATA[CURRENT_INDEX].id];
+    if (activeEntry && activeEntry.group && activeEntry.group.visible) {
+      activeEntry.group.rotation.y += 0.003;
+      activeEntry.group.position.y = Math.sin(t * 1.5) * 0.12; // gentle float
+    }
+    
+    G_RENDERER.render(G_SCENE, G_CAMERA);
+  }
+  animate();
+
+  window.addEventListener('resize', () => {
+    G_CAMERA.aspect = window.innerWidth / window.innerHeight;
+    G_CAMERA.updateProjectionMatrix();
+    G_RENDERER.setSize(window.innerWidth, window.innerHeight);
+  });
+}
+
+// Helper: animate all mesh opacities in a model
+function animateModelOpacity(modelEntry, fromVal, toVal, duration, delay = 0, onComplete) {
+  if (!modelEntry || !modelEntry.model) return;
+  const meshes = [];
+  modelEntry.model.traverse(child => {
+    if (child.isMesh && child.material) {
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
+      mats.forEach(m => {
+        m.transparent = true;
+        m.opacity = fromVal;
+        meshes.push(m);
+      });
+    }
+  });
+  if (meshes.length === 0) { if (onComplete) onComplete(); return; }
+  // Use a single GSAP proxy to drive all opacities together
+  const proxy = { opacity: fromVal };
+  gsap.to(proxy, {
+    opacity: toVal,
+    duration,
+    delay,
+    ease: 'power2.inOut',
+    onUpdate: () => meshes.forEach(m => m.opacity = proxy.opacity),
+    onComplete: onComplete || (() => {})
+  });
+}
+
+function transition3D(oldIndex, newIndex) {
+  if (oldIndex === newIndex) return;
+  const oldEntry = G_MODELS[DATA[oldIndex].id];
+  const newEntry = G_MODELS[DATA[newIndex].id];
+  if (!oldEntry || !newEntry) return;
+
+  const oldGroup = oldEntry.group;
+  const newGroup = newEntry.group;
+
+  // Kill any ongoing tweens on these groups to avoid overlap
+  gsap.killTweensOf(oldGroup.scale);
+  gsap.killTweensOf(oldGroup.position);
+  gsap.killTweensOf(oldGroup.rotation);
+  gsap.killTweensOf(newGroup.scale);
+  gsap.killTweensOf(newGroup.position);
+  gsap.killTweensOf(newGroup.rotation);
+
+  // --- OUT: fade + shrink then HIDE completely before new appears ---
+  animateModelOpacity(oldEntry, 1, 0, 0.45);
+  gsap.to(oldGroup.scale, {
+    x: 0.82, y: 0.82, z: 0.82, duration: 0.45, ease: 'power3.in',
+    onComplete: () => {
+      oldGroup.visible = false;
+      oldGroup.scale.setScalar(0.82);
+      oldGroup.position.y = 0;
+      oldGroup.rotation.y = 0;
+
+      // --- IN: only materialise AFTER old is fully hidden ---
+      newGroup.visible = true;
+      newGroup.scale.setScalar(0.75);
+      newGroup.position.y = -0.8;
+      newGroup.rotation.y = 0.4;
+
+      // Drift up, expand, straighten (cinematic)
+      gsap.to(newGroup.scale,    { x: 1, y: 1, z: 1,  duration: 1.8, ease: 'expo.out' });
+      gsap.to(newGroup.position, { y: 0,              duration: 1.6, ease: 'expo.out' });
+      gsap.to(newGroup.rotation, { y: 0,              duration: 1.6, ease: 'expo.out' });
+
+      // Opacity materialise from 0 → 1
+      animateModelOpacity(newEntry, 0, 1, 1.4, 0);
+
+      // Camera subtle push-pull for dynamism
+      gsap.fromTo(G_CAMERA.position,
+        { z: 11.2 },
+        { z: 10, duration: 1.8, ease: 'expo.out' }
+      );
+    }
+  });
+}
+
+
+// --- React App ---
+function App() {
+  const [index, setIndex] = useState(0);
+  const isAnimating = useRef(false);
+
+  useEffect(() => {
+    init3D();
+  }, []);
+
+  const changeSlide = useCallback((newIndex) => {
+    if (isAnimating.current || newIndex === index) return;
+    
+    isAnimating.current = true;
+    const oldIndex = index;
+    CURRENT_INDEX = newIndex;
+    setIndex(newIndex);
+
+    // Update ambient background
+    document.getElementById('ambient-layer').style.background = DATA[newIndex].ambient;
+
+    // Trigger 3D transition
+    transition3D(oldIndex, newIndex);
+
+    // Animate UI Out & In (Staggered approach for dazzling effect)
+    const items = document.querySelectorAll('.ui-anim');
+    gsap.to(items, { opacity: 0, y: -20, duration: 0.3, stagger: 0.02, onComplete: () => {
+      // Small delay before revealing new elements for smoothness
+      setTimeout(() => {
+        gsap.fromTo(items, 
+          { opacity: 0, y: 20 },
+          { opacity: 1, y: 0, duration: 0.6, stagger: 0.06, ease: 'power2.out' }
+        );
+        setTimeout(() => isAnimating.current = false, 300);
+      }, 100);
+    }});
+  }, [index]);
+
+  // Initial UI Animation
+  useEffect(() => {
+    gsap.fromTo('.ui-anim', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.8, stagger: 0.08, delay: 0.5 });
+  }, []);
+
+  // Manage Body Scroll Lock
+  useEffect(() => {
+    if (index === DATA.length - 1) {
+      document.body.style.overflowY = 'auto';
+    } else {
+      document.body.style.overflowY = 'hidden';
+      window.scrollTo(0, 0); // Lock at the top
+    }
+  }, [index]);
+
+  // Wheel Listener for Product Navigation
+  useEffect(() => {
+    const handleWheel = (e) => {
+      if (isAnimating.current) return;
+
+      if (index < DATA.length - 1) {
+        // Locked at the top, navigating products
+        if (e.deltaY > 15) {
+          changeSlide(index + 1);
+        } else if (e.deltaY < -15 && index > 0) {
+          changeSlide(index - 1);
+        }
+      } else {
+        // At the last product, allow scrolling down to footer
+        if (window.scrollY <= 5 && e.deltaY < -15) {
+          changeSlide(index - 1);
+        }
+      }
+    };
+    
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    return () => window.removeEventListener('wheel', handleWheel);
+  }, [index, changeSlide]);
+
+  // Parallax Effect on Hero Cards (Mouse Move)
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight / 2;
+      const dx = (e.clientX - cx) / cx; // -1 to 1
+      const dy = (e.clientY - cy) / cy; // -1 to 1
+
+      const leftCard = document.getElementById('card-left');
+      const rightCard = document.getElementById('card-right');
+      
+      // Opposite movements for depth effect
+      if (leftCard) leftCard.style.transform = `translate(${dx * -15}px, ${dy * -15}px)`;
+      if (rightCard) rightCard.style.transform = `translate(${dx * 15}px, ${dy * -15}px)`;
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
+
+  // Touch Listener for Mobile Navigation
+  useEffect(() => {
+    let touchStartY = 0;
+    
+    const handleTouchStart = (e) => {
+      touchStartY = e.touches[0].clientY;
+    };
+    
+    const handleTouchMove = (e) => {
+      if (isAnimating.current) return;
+      
+      const touchEndY = e.touches[0].clientY;
+      const deltaY = touchStartY - touchEndY;
+      
+      if (index < DATA.length - 1) {
+        if (deltaY > 30) {
+          changeSlide(index + 1);
+          touchStartY = touchEndY;
+        } else if (deltaY < -30 && index > 0) {
+          changeSlide(index - 1);
+          touchStartY = touchEndY;
+        }
+      } else {
+        if (window.scrollY <= 5 && deltaY < -30) {
+          changeSlide(index - 1);
+          touchStartY = touchEndY;
+        }
+      }
+    };
+    
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, [index, changeSlide]);
+
+  // Fade out 3D canvas (MacBook) on scroll to footer
+  useEffect(() => {
+    const handleScroll = () => {
+      if (index === DATA.length - 1) {
+        const scrollY = window.scrollY;
+        const vh = window.innerHeight;
+        // Fade out smoothly between 0 and 50vh scroll
+        const opacity = Math.max(0, 1 - (scrollY / (vh * 0.5)));
+        const canvas = document.getElementById('canvas-container');
+        if (canvas) canvas.style.opacity = opacity;
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      const canvas = document.getElementById('canvas-container');
+      if (canvas) canvas.style.opacity = 1;
+    };
+  }, [index]);
+
+  const activeData = DATA[index];
+  const NAV_ITEMS = [
+    { name: "Product", href: "#" },
+    { name: "Solutions", href: "#" },
+    { name: "Pricing", href: "#" },
+    { name: "Company", href: "#" }
+  ];
+  const [activeNav, setActiveNav] = useState(NAV_ITEMS[0].name);
+
+  return (
+    <>
+      <header>
+        <div className="di-pill">
+          <div className="di-logo">
+            <img src="apple-logo.png" alt="Apple" />
+          </div>
+          <div className="di-sep"></div>
+          <div className="di-links">
+            {NAV_ITEMS.map(item => (
+              <button
+                key={item.name}
+                className={`gnav-link${activeNav === item.name ? ' active' : ''}`}
+                onClick={() => setActiveNav(item.name)}
+              >{item.name}</button>
+            ))}
+          </div>
+          <div className="di-cta">
+            <button className="di-cta-btn">Pre-Order</button>
+          </div>
+          <div className="di-notif"></div>
+        </div>
+      </header>
+
+      <div id="ui-layer">
+        <main>
+        {/* Left Info Card */}
+        <div className="glass-panel ui-anim parallax-card" style={{ marginLeft: '40px' }} id="card-left">
+          <div className="card-accent" style={{ background: `linear-gradient(90deg, ${activeData.color}, transparent)` }}></div>
+          <div className="card-body">
+            <span className="info-eyebrow" style={{ color: activeData.color }}>{activeData.name}</span>
+            <h1 className="info-title">{activeData.title}</h1>
+            <p className="info-desc">{activeData.desc}</p>
+            <button className="primary-btn" style={{ background: activeData.color }}>
+              Discover <i className="ph ph-arrow-right"></i>
+            </button>
+          </div>
+        </div>
+
+        {/* Right Panel — Specs Card */}
+        <div className="glass-panel ui-anim parallax-card" style={{ marginRight: '40px' }} id="card-right">
+          <div className="card-accent" style={{ background: `linear-gradient(90deg, ${activeData.color}, transparent)` }}></div>
+            <div className="card-body">
+              <span className="card-section-label">Specs</span>
+            <ul className="specs-list">
+              {activeData.specs.map((s, i) => (
+                <li key={i} className="spec-item">
+                  <span className="spec-label">{s.label}</span>
+                  <span className="spec-val" style={{ color: i === 0 ? activeData.color : '#fff' }}>{s.value}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="spec-highlight">
+              <span className="spec-highlight-label">Starts at</span>
+              <span className="spec-highlight-val" style={{ color: activeData.color }}>{activeData.price}</span>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <footer>
+        <div className="carousel-dock">
+          {DATA.map((item, i) => (
+            <button 
+              key={item.id} 
+              onClick={() => changeSlide(i)}
+              className={`dock-item ${i === index ? 'active' : ''}`}
+            >
+              <div className="dock-bg" style={{ background: item.color }}></div>
+              <i className={
+                item.id === 'iphone' ? 'ph ph-device-mobile' : 
+                item.id === 'ipad' ? 'ph ph-device-tablet' : 
+                item.id === 'watch' ? 'ph ph-watch' : 'ph ph-laptop'
+              }></i>
+              {item.name}
+            </button>
+          ))}
+        </div>
+      </footer>
+
+      <div className="scroll-hint">
+        <div className="mouse-icon"><div className="mouse-wheel"></div></div>
+        Scroll
+      </div>
+    </div>
+
+      <GalleryBento />
+      <AppleTimeline />
+      <StoreLocator />
+      <CircularFooter />
+    </>
+  );
+}
+
+// ============================================================================
+// GALLERY BENTO — HORIZONTAL ACCORDION
+// ============================================================================
+const GalleryBento = () => {
+    const [activeId, setActiveId] = useState(1);
+
+    const items = [
+        { id: 1, title: 'Vision Pro',  category: 'Spatial Computing', desc: 'An entirely new way to experience computing. Spatial audio, infinite canvas, revolutionary eye tracking.', img: 'https://images.unsplash.com/photo-1677442135703-1787eea5ce01?q=80&w=1200&auto=format&fit=crop' },
+        { id: 2, title: 'MacBook Pro', category: 'Pro Performance',   desc: 'M4 Pro chip. XDR display. Up to 24 hours battery. The world\'s best pro notebook, perfected.', img: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?q=80&w=1200&auto=format&fit=crop' },
+        { id: 3, title: 'iPhone 16',   category: 'Titanium Design',   desc: 'Camera Control. Apple Intelligence. A18 Pro chip. The most personal device, reimagined.', img: 'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?q=80&w=1200&auto=format&fit=crop' },
+        { id: 4, title: 'Apple Watch', category: 'Health & Fitness',  desc: 'Advanced health sensors. Precision GPS. 72-hour battery. Your ultimate health companion.', img: 'https://images.unsplash.com/photo-1434493789847-2f02dc6ca35d?q=80&w=1200&auto=format&fit=crop' },
+    ];
+
+    return (
+        <div style={{ background: '#030303', padding: '120px 40px', position: 'relative', zIndex: 20 }}>
+            <div style={{ textAlign: 'center', marginBottom: '64px' }}>
+                <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '14px' }}>Apple 2026</p>
+                <h2 style={{ fontSize: 'clamp(2rem,5vw,3.2rem)', fontWeight: 700, color: '#fff', fontFamily: "'Georgia',serif", letterSpacing: '-0.02em', marginBottom: '12px' }}>Selected Innovations</h2>
+                <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.35)', fontWeight: 300 }}>Tap a product to explore. Engineered beyond imagination.</p>
+            </div>
+            <div className="accordion-gallery" style={{ margin: '0 auto' }}>
+                {items.map(item => (
+                    <div
+                        key={item.id}
+                        className={`accordion-col${activeId === item.id ? ' active' : ''}`}
+                        onClick={() => setActiveId(item.id)}
+                    >
+                        <img src={item.img} alt={item.title} />
+                        <div className="accordion-col-overlay" />
+                        <div className="accordion-col-label">
+                            <span className="accordion-col-category">{item.category}</span>
+                            <div className="accordion-col-title">{item.title}</div>
+                            <div className="accordion-col-detail"><p>{item.desc}</p></div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+// ============================================================================
+// APPLE TIMELINE
+// ============================================================================
+const AppleTimeline = () => {
+    const events = [
+        { year: '1984', title: 'Macintosh — The Computer for the Rest of Us', desc: 'Apple introduced the original Macintosh, the first mass-market personal computer featuring a graphical user interface and a mouse.' },
+        { year: '2001', title: 'iPod — 1,000 Songs in Your Pocket', desc: 'The iPod revolutionized the music industry and established Apple as the dominant force in portable entertainment.' },
+        { year: '2007', title: 'iPhone — An Internet Communicator, a Phone, and an iPod', desc: 'Steve Jobs introduced the iPhone, defining the modern smartphone era and changing the world forever.' },
+        { year: '2010', title: 'iPad — The Third Category', desc: 'Apple created an entirely new product category between a phone and a laptop, reshaping how we consume content.' },
+        { year: '2015', title: 'Apple Watch — The Most Personal Device Ever', desc: 'A health and fitness revolution on your wrist. Apple Watch became the world\'s best-selling watch within a year.' },
+        { year: '2024', title: 'Vision Pro — Spatial Computing Begins', desc: 'Apple Vision Pro ushered in the era of spatial computing — a new dimension of apps, content, and experiences.' },
+        { year: '2026', title: 'The Next Chapter — Beyond Imagination', desc: 'The future is being written now. Apple continues to push the boundaries of what is possible at the intersection of technology and humanity.' },
+    ];
+
+    const itemsRef = useRef([]);
+
+    useEffect(() => {
+        const observer = new IntersectionObserver(entries => {
+            entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+        }, { threshold: 0.12 });
+        itemsRef.current.forEach(el => { if (el) observer.observe(el); });
+        return () => observer.disconnect();
+    }, []);
+
+    return (
+        <section className="timeline-section">
+            <div className="timeline-heading">
+                <p className="timeline-eyebrow">A Legacy of Innovation</p>
+                <h2 className="timeline-title">The Apple Story</h2>
+            </div>
+            <div className="timeline-track">
+                {events.map((ev, i) => (
+                    <div key={i} className="timeline-item" ref={el => itemsRef.current[i] = el} style={{ transitionDelay: `${i * 0.08}s` }}>
+                        {/* Huge semi-transparent year */}
+                        <div className="timeline-year-giant">{ev.year}</div>
+                        {/* Dot + line */}
+                        <div className="timeline-divider">
+                            <div className="timeline-node"></div>
+                            {i < events.length - 1 && <div className="timeline-line-seg"></div>}
+                        </div>
+                        {/* Content */}
+                        <div className="timeline-content">
+                            <p className="timeline-year-label">{ev.year}</p>
+                            <h3 className="timeline-event-title">{ev.title}</h3>
+                            <p className="timeline-event-desc">{ev.desc}</p>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </section>
+    );
+};
+
+// ============================================================================
+// STORE LOCATOR
+// ============================================================================
+const StoreLocator = () => {
+    const stores = [
+        {
+            city: 'New York',
+            address: 'Apple Fifth Avenue\n767 Fifth Ave, New York, NY',
+            hours: '9:00 AM – 11:00 PM', phone: '+1 212 336 1440', flagship: true,
+            tag: 'East Coast', tagColor: 'rgba(10,132,255,0.15)', tagTextColor: '#0a84ff',
+            identity: 'The Glass Cube on Fifth Avenue — open 24/7, 365 days a year.',
+            img: 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?q=80&w=800&auto=format&fit=crop',
+        },
+        {
+            city: 'London',
+            address: 'Apple Regent Street\n235 Regent St, London W1B 2EL',
+            hours: '10:00 AM – 9:00 PM', phone: '+44 20 7153 9000', flagship: true,
+            tag: 'Heritage', tagColor: 'rgba(255,55,95,0.12)', tagTextColor: '#ff375f',
+            identity: 'Victorian grandeur meets Silicon Valley on London\'s most iconic shopping street.',
+            img: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?q=80&w=800&auto=format&fit=crop',
+        },
+        {
+            city: 'Tokyo',
+            address: 'Apple Omotesando\n3-5-12 Kita-Aoyama, Tokyo',
+            hours: '10:00 AM – 9:00 PM', phone: '+81 3 6757 4800', flagship: false,
+            tag: 'Asia Pacific', tagColor: 'rgba(255,214,10,0.1)', tagTextColor: '#ffd60a',
+            identity: 'A seamless glass façade in the heart of Tokyo\'s most fashionable district.',
+            img: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?q=80&w=800&auto=format&fit=crop',
+        },
+        {
+            city: 'Dubai',
+            address: 'Apple Dubai Mall\nThe Dubai Mall, Downtown',
+            hours: '10:00 AM – 12:00 AM', phone: '+971 4 350 9200', flagship: false,
+            tag: 'Middle East', tagColor: 'rgba(48,209,88,0.1)', tagTextColor: '#30d158',
+            identity: 'Overlooking the Burj Khalifa with a breathtaking view of the Dubai Fountain.',
+            img: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?q=80&w=800&auto=format&fit=crop',
+        },
+        {
+            city: 'Berlin',
+            address: 'Apple Rosenthaler Str.\nRosenthaler Str. 9, 10119 Berlin',
+            hours: '9:00 AM – 10:00 PM', phone: '+49 30 235 994 50', flagship: false,
+            tag: 'Europe', tagColor: 'rgba(191,90,242,0.12)', tagTextColor: '#bf5af2',
+            identity: 'Industrial chic in the creative heart of Berlin\'s Mitte neighbourhood.',
+            img: 'https://images.unsplash.com/photo-1560969184-10fe8719e047?q=80&w=800&auto=format&fit=crop',
+        },
+        {
+            city: 'Singapore',
+            address: 'Apple Orchard Road\n270 Orchard Rd, Singapore 238857',
+            hours: '10:00 AM – 10:00 PM', phone: '+65 6694 7800', flagship: false,
+            tag: 'Southeast Asia', tagColor: 'rgba(100,210,255,0.1)', tagTextColor: '#64d2ff',
+            identity: 'Surrounded by lush greenery on the world\'s most celebrated shopping boulevard.',
+            img: 'https://images.unsplash.com/photo-1525625293386-3f8f99389edd?q=80&w=800&auto=format&fit=crop',
+        },
+    ];
+
+    return (
+        <section className="stores-section">
+            <div className="stores-heading">
+                <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', marginBottom: '14px' }}>Worldwide Presence</p>
+                <h2 style={{ fontSize: 'clamp(2rem,5vw,3.2rem)', fontWeight: 700, color: '#fff', fontFamily: "'Georgia',serif", letterSpacing: '-0.02em', marginBottom: '12px' }}>Find a Store</h2>
+                <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.35)', fontWeight: 300 }}>Experience Apple firsthand at one of our flagship retail locations worldwide.</p>
+            </div>
+            <div className="stores-grid">
+                {stores.map((s, i) => (
+                    <div key={i} className="store-card">
+                        <img src={s.img} alt={s.city} className="store-img-strip" />
+                        <span className="store-tag" style={{ background: s.tagColor, color: s.tagTextColor }}>{s.tag}</span>
+                        <div className="store-city">{s.city}</div>
+                        <div className="store-address" style={{ whiteSpace: 'pre-line' }}>{s.address}</div>
+                        <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.28)', lineHeight: 1.6, marginBottom: '20px', fontStyle: 'italic' }}>{s.identity}</p>
+                        <div className="store-meta">
+                            <div className="store-meta-row">
+                                <span className="store-meta-label">Hours</span>
+                                <span className="store-meta-val">{s.hours}</span>
+                            </div>
+                            <div className="store-meta-row">
+                                <span className="store-meta-label">Phone</span>
+                                <span className="store-meta-val">{s.phone}</span>
+                            </div>
+                        </div>
+                        {s.flagship && <div className="store-badge">Flagship Store</div>}
+                    </div>
+                ))}
+            </div>
+        </section>
+    );
+};
+
+// ============================================================================
+// CIRCULAR TEXT FOOTER COMPONENT
+// ============================================================================
+const CircularFooter = () => {
+    return (
+        <footer className="c-footer">
+            {/* Rotating ring + logo */}
+            <div className="c-footer-top">
+                <div className="c-footer-wrapper" style={{ marginBottom: 0 }}>
+                    <div className="c-rotating-ring">
+                        <svg viewBox="0 0 100 100" className="c-ring-svg">
+                            <path id="circlePath" d="M 50, 50 m -37, 0 a 37,37 0 1,1 74,0 a 37,37 0 1,1 -74,0" fill="transparent" />
+                            <text className="c-ring-text">
+                                <textPath href="#circlePath" startOffset="0%">
+                                    Email Us • Follow Us • Call Us • Visit Us •
+                                </textPath>
+                            </text>
+                        </svg>
+                    </div>
+                    <button onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})} className="c-center-btn" aria-label="Back to top">
+                        <img src="apple-logo.png" alt="Apple" style={{ width: '48px', height: '48px', objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
+                    </button>
+                </div>
+            </div>
+
+            {/* Bottom bar */}
+            <div className="c-footer-bottom">
+                <div className="c-footer-copy">
+                    Copyright © 2026 Apple Inc. All rights reserved.<br/>
+                    Designed in California. Assembled everywhere.
+                </div>
+                <div className="c-footer-social">
+                    <a className="c-social-btn" title="Instagram"><i className="ph ph-instagram-logo"></i></a>
+                    <a className="c-social-btn" title="Twitter/X"><i className="ph ph-x-logo"></i></a>
+                    <a className="c-social-btn" title="YouTube"><i className="ph ph-youtube-logo"></i></a>
+                    <a className="c-social-btn" title="LinkedIn"><i className="ph ph-linkedin-logo"></i></a>
+                </div>
+                <div className="c-footer-legal">
+                    <a>Privacy Policy</a>
+                    <a>Terms of Use</a>
+                    <a>Sales Policy</a>
+                    <a>Site Map</a>
+                    <a>Accessibility</a>
+                </div>
+            </div>
+        </footer>
+    );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+<style>
+body { overflow-x: hidden; overflow-y: auto; }
+</style>
+</body>
+</html>
