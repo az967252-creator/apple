@@ -700,13 +700,20 @@ function init3D() {
   G_SCENE.add(backLight);
 
  // Load Models
+ // Load Models
+
   const loader = new THREE.GLTFLoader();
+
   const files = [
-    // الأيفون والماك بوك هيدوروا على ملف .glb موجود فعلياً عشان العداد يوصل 100% والموقع يفتح
-    { id: 'iphone', path: './ipad_mini_6_2021.glb', size: 3.5, offsetY: -1.2 }, 
-    { id: 'ipad', path: './ipad_mini_6_2021.glb', size: 4.2, offsetY: -0.3 },
-    { id: 'watch', path: './apple_watch_ultra_2.glb', size: 2.8, offsetY: -0.2 },
-    { id: 'macbook', path: './apple_watch_ultra_2.glb', size: 4.8, offsetY: 0.9 } 
+
+    { id: 'iphone', path: 'iphone-17-pro-max/source/Untitled.glb', size: 3.5, offsetY: -1.2 },
+
+    { id: 'ipad', path: 'ipad_mini_6_2021.glb', size: 4.2, offsetY: -0.3 },
+
+    { id: 'watch', path: 'apple_watch_ultra_2.glb', size: 2.8, offsetY: -0.2 },
+
+    { id: 'macbook', path: 'MacBook Ultra.glb', size: 4.8, offsetY: 0.9 } // Raised even more
+
   ];
   let loadedCount = 0;
   files.forEach(f => {
