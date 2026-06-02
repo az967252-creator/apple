@@ -700,14 +700,22 @@ function init3D() {
   G_SCENE.add(backLight);
 
   // Load Models
-  const loader = new THREE.GLTFLoader();
-  const files = [
-    { id: 'iphone', path: 'iphone-17-pro-max/source/Untitled.glb', size: 3.5, offsetY: -1.2 },
-    { id: 'ipad', path: 'ipad_mini_6_2021.glb', size: 4.2, offsetY: -0.3 },
-    { id: 'watch', path: 'apple_watch_ultra_2.glb', size: 2.8, offsetY: -0.2 },
-    { id: 'macbook', path: 'macbook-air/source/MacBook Ultra.glb', size: 4.8, offsetY: 0.9 } // Raised even more
-  ];
-
+ // Load Models
+  const loader = new THREE.GLTFLoader();
+  const files = [
+    // تم تعديل المسار والاسم لـ iphone.png أو الـ .glb المتاح عندك برة مباشرة
+    // بما إن مفيش ملف iphone.glb في الصورة، اتأكد من اسم ملف الأيفون المرفوع، أو سيب الاسم مطابق للي برة:
+    { id: 'iphone', path: './iphone.png', size: 3.5, offsetY: -1.2 }, 
+    
+    // تم التعديل ليقرأ مباشرة من الـ Root بنفس الاسم اللي في الـ GitHub
+    { id: 'ipad', path: './ipad_mini_6_2021.glb', size: 4.2, offsetY: -0.3 },
+    
+    // تم التعديل ليقرأ مباشرة من الـ Root بنفس الاسم اللي في الـ GitHub
+    { id: 'watch', path: './apple_watch_ultra_2.glb', size: 2.8, offsetY: -0.2 },
+    
+    // تم التعديل ليقرأ الماك بوك من الـ Root مباشرة (اتأكد إنك رافع ملف macbook.glb برة زي الباقيين)
+    { id: 'macbook', path: './macbook.png', size: 4.8, offsetY: 0.9 } 
+  ];
   let loadedCount = 0;
   files.forEach(f => {
     loader.load(f.path, gltf => {
